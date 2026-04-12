@@ -1,0 +1,25 @@
+# Secrets — never commit
+.env
+.env.*
+*.env
+manifests/secret.yaml
+
+# Node
+node_modules/
+
+# Build outputs
+dist/
+build/
+
+# Editor artifacts
+.vscode/
+.idea/
+*.swp
+*.swo
+*~
+
+# macOS
+.DS_Store
+
+# npm
+npm-debug.log*

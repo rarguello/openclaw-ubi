@@ -1,0 +1,17 @@
+# Headless ClusterIP service — required by StatefulSet for stable DNS.
+# Access via: oc port-forward pod/openclaw-ubi-0 18789:18789 -n openclaw-ubi
+apiVersion: v1
+kind: Service
+metadata:
+  name: openclaw-ubi
+  labels:
+    app.kubernetes.io/name: openclaw-ubi
+spec:
+  clusterIP: None
+  selector:
+    app.kubernetes.io/name: openclaw-ubi
+  ports:
+    - name: gateway
+      port: 18789
+      targetPort: gateway
+      protocol: TCP

@@ -1,0 +1,14 @@
+apiVersion: policy/v1
+kind: PodDisruptionBudget
+metadata:
+  name: openclaw-ubi
+  labels:
+    app.kubernetes.io/name: openclaw-ubi
+    app.kubernetes.io/component: availability
+spec:
+  # Single replica — block voluntary evictions (node drains) to prevent downtime.
+  # Remove this PDB if you want node drains to proceed without waiting.
+  maxUnavailable: 0
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: openclaw-ubi

@@ -1,0 +1,131 @@
+apiVersion: apps/v1
+kind: StatefulSet
+metadata:
+  name: openclaw-ubi
+  labels:
+    app.kubernetes.io/name: openclaw-ubi
+spec:
+  replicas: 1
+  serviceName: openclaw-ubi
+  selector:
+    matchLabels:
+      app.kubernetes.io/name: openclaw-ubi
+  template:
+    metadata:
+      labels:
+        app.kubernetes.io/name: openclaw-ubi
+    spec:
+      securityContext:
+        runAsNonRoot: true
+        seccompProfile:
+          type: RuntimeDefault
+      serviceAccountName: openclaw-ubi
+      automountServiceAccountToken: false
+      initContainers:
+        - name: init-config
+          image: ghcr.io/rarguello/openclaw-ubi:2026.4.11
+          imagePullPolicy: Always
+          command: ["sh", "-c", "[ -f /var/lib/openclaw/openclaw.json ] || cp /run/config/openclaw.json /var/lib/openclaw/openclaw.json"]
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          resources:
+            requests:
+              cpu: 10m
+              memory: 32Mi
+            limits:
+              cpu: 100m
+              memory: 64Mi
+          volumeMounts:
+            - name: openclaw-ubi-state
+              mountPath: /var/lib/openclaw
+            - name: openclaw-ubi-config
+              mountPath: /run/config
+              readOnly: true
+      containers:
+        - name: openclaw-ubi
+          image: ghcr.io/rarguello/openclaw-ubi:2026.4.11
+          imagePullPolicy: Always
+          securityContext:
+            allowPrivilegeEscalation: false
+            readOnlyRootFilesystem: true
+            capabilities:
+              drop:
+                - ALL
+          ports:
+            - name: gateway
+              containerPort: 18789
+              protocol: TCP
+          envFrom:
+            - secretRef:
+                name: openclaw-ubi
+          env:
+            - name: XDG_CONFIG_HOME
+              value: /var/lib/openclaw
+            - name: OPENCLAW_CONFIG_PATH
+              value: /var/lib/openclaw/openclaw.json
+            - name: NODE_ENV
+              value: production
+            - name: NPM_CONFIG_CACHE
+              value: /tmp/.npm
+            - name: HOME
+              value: /var/lib/openclaw
+            - name: HISTFILE
+              value: /dev/null
+            - name: HISTSIZE
+              value: "0"
+          resources:
+            requests:
+              cpu: 100m
+              memory: 256Mi
+            limits:
+              cpu: "1"
+              memory: 1Gi
+          startupProbe:
+            httpGet:
+              path: /healthz
+              port: gateway
+            # Allow up to 60 s for the gateway to start (10 s delay + 10 × 5 s).
+            initialDelaySeconds: 10
+            periodSeconds: 5
+            failureThreshold: 10
+          livenessProbe:
+            httpGet:
+              path: /healthz
+              port: gateway
+            periodSeconds: 30
+            timeoutSeconds: 5
+            failureThreshold: 3
+          readinessProbe:
+            httpGet:
+              path: /readyz
+              port: gateway
+            periodSeconds: 10
+            timeoutSeconds: 5
+            failureThreshold: 3
+          volumeMounts:
+            - name: openclaw-ubi-state
+              mountPath: /var/lib/openclaw
+            - name: tmp
+              mountPath: /tmp
+      volumes:
+        - name: openclaw-ubi-config
+          configMap:
+            name: openclaw-ubi-config
+        - name: tmp
+          emptyDir:
+            medium: Memory
+            sizeLimit: 256Mi
+  volumeClaimTemplates:
+    - metadata:
+        name: openclaw-ubi-state
+        labels:
+          app.kubernetes.io/name: openclaw-ubi
+      spec:
+        accessModes: [ReadWriteOnce]
+        resources:
+          requests:
+            storage: 5Gi

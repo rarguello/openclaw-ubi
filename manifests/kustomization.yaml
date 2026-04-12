@@ -1,0 +1,24 @@
+apiVersion: kustomize.config.k8s.io/v1beta1
+kind: Kustomization
+
+namespace: openclaw-ubi
+
+resources:
+  - namespace.yaml
+  - serviceaccount.yaml
+  - networkpolicy.yaml
+  - poddisruptionbudget.yaml
+  - service.yaml
+  - statefulset.yaml
+  # secret.yaml is intentionally excluded — never commit real credentials.
+  # Create the Secret imperatively before applying:
+  #   oc create secret generic openclaw-ubi --from-env-file=.env --namespace=openclaw-ubi
+
+# ConfigMap is generated from config/openclaw.json — single source of truth,
+# no manual sync needed between config/ and manifests/.
+configMapGenerator:
+  - name: openclaw-ubi-config
+    files:
+      - openclaw.json=../config/openclaw.json
+    options:
+      disableNameSuffixHash: true

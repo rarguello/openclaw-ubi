@@ -1,0 +1,54 @@
+apiVersion: networking.k8s.io/v1
+kind: NetworkPolicy
+metadata:
+  name: openclaw-ubi
+  labels:
+    app.kubernetes.io/name: openclaw-ubi
+    app.kubernetes.io/component: network
+spec:
+  podSelector:
+    matchLabels:
+      app.kubernetes.io/name: openclaw-ubi
+
+  # -----------------------------------------------------------------------
+  # Ingress — allow nothing from outside the cluster.
+  # The only access path is oc port-forward (bypasses NetworkPolicy).
+  # -----------------------------------------------------------------------
+  ingress: []
+
+  # -----------------------------------------------------------------------
+  # Egress
+  # -----------------------------------------------------------------------
+  egress:
+    # DNS — OpenShift OVN-Kubernetes resolves queries through its own DNS pods
+    # on port 5353 (not 53). Standard Kubernetes clusters use port 53 instead.
+    - to:
+        - namespaceSelector:
+            matchLabels:
+              kubernetes.io/metadata.name: openshift-dns
+          podSelector:
+            matchLabels:
+              app: dns
+      ports:
+        - port: 5353
+          protocol: UDP
+    # HTTPS — OpenRouter, Telegram, and any other external APIs.
+    # Restricted to external IPs only; cluster-internal and cloud metadata
+    # endpoints are excluded.
+    # Note: NetworkPolicy cannot filter by FQDN. For per-hostname control use
+    # OpenShift EgressFirewall (admin) or an egress proxy.
+    - to:
+        - ipBlock:
+            cidr: 0.0.0.0/0
+            except:
+              - 10.0.0.0/8
+              - 172.16.0.0/12
+              - 192.168.0.0/16
+              - 169.254.169.254/32
+      ports:
+        - port: 443
+          protocol: TCP
+
+  policyTypes:
+    - Ingress
+    - Egress
